@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONVERTOP - Studio Web Edition</title>
+    
+    <script>
+        const serverTheme = "{{ settings.theme }}";
+        if (serverTheme === 'dark' || (serverTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .custom-glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .dark .custom-glass {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .loading-dot {
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #334155; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 flex items-center justify-center p-4 min-h-screen relative overflow-hidden">
+
+    <div id="splashScreen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 transition-opacity duration-700 ease-in-out">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Loading" class="w-48 h-48 mb-6 object-contain drop-shadow-[0_20px_30px_rgba(14,165,233,0.4)] animate-pulse">
+        <h1 class="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500 mb-6 animate-pulse">
+            CONVERTOP
+        </h1>
+        <div class="flex gap-2 items-center mb-4">
+            <div class="w-3 h-3 bg-sky-500 rounded-full loading-dot"></div>
+            <div class="w-3 h-3 bg-indigo-500 rounded-full loading-dot"></div>
+            <div class="w-3 h-3 bg-sky-500 rounded-full loading-dot"></div>
+        </div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">טוען את סביבת העבודה...</p>
+    </div>
+
+    <div class="custom-glass w-11/12 max-w-6xl rounded-3xl p-8 md:p-10 shadow-2xl relative flex flex-col md:flex-row items-center gap-10">
+
+        <div class="w-full md:w-5/12 flex flex-col items-center justify-center text-center relative">
+            <div class="flex flex-row justify-center gap-3 mb-8 w-full">
+                <button onclick="toggleSettingsModal(true)" class="flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-100 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm transition-all text-sm font-bold text-slate-700 dark:text-slate-200 hover:-translate-y-0.5">
+                    ⚙️ הגדרות
+                </button>
+                <button onclick="toggleAboutModal(true)" class="flex items-center justify-center gap-1.5 px-4 py-2 bg-sky-50 dark:bg-sky-900/20 hover:bg-sky-100 dark:hover:bg-sky-900/40 border border-sky-200 dark:border-sky-800/50 rounded-xl shadow-sm transition-all text-sm font-bold text-sky-600 dark:text-sky-400 hover:-translate-y-0.5">
+                    ℹ️ אודות
+                </button>
+            </div>
+
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="w-56 h-56 mb-4 object-contain drop-shadow-[0_20px_30px_rgba(14,165,233,0.35)] transform hover:rotate-180 transition-transform duration-700 cursor-pointer select-none">
+            
+            <h1 class="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500 mb-2">
+                CONVERTOP
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">המנוע האישי שלך לניהול והמרת קבצים</p>
+        </div>
+
+        <div class="w-full md:w-7/12">
+            <form id="convertForm" class="space-y-4">
+                
+                <div id="dropzone" class="border-2 border-dashed border-sky-500/40 rounded-xl py-6 px-6 text-center cursor-pointer bg-slate-100/50 dark:bg-slate-900/30 hover:border-sky-400 hover:bg-sky-500/5 transition-all group">
+                    <input type="file" id="fileInput" class="hidden" multiple>
+                    <div class="text-4xl mb-2 transform group-hover:scale-110 transition-transform">📥</div>
+                    <p class="text-lg font-bold text-slate-700 dark:text-slate-200">גרור קבצים לכאן או לחץ להוספה</p>
+                    <p class="text-[11px] text-slate-400 mt-1">תוכל להוסיף קבצים מרובים בכל שלב</p>
+                </div>
+
+                <div id="fileListContainer" class="hidden bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+                    <div class="flex justify-between items-center mb-2 px-1">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">תור המרות (<span id="queueCount">0</span>)</span>
+                        <button type="button" onclick="clearQueue()" class="text-xs text-red-500 hover:text-red-400 font-bold transition-colors">רוקן הכל</button>
+                    </div>
+                    <div id="fileQueue" class="max-h-56 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2">
+                        </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 bg-slate-100 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div class="text-right w-full overflow-hidden">
+                        <p class="text-[10px] text-slate-400 font-semibold mb-0.5">תיקיית שמירה:</p>
+                        <p id="destLabel" class="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">ברירת מחדל (הורדות בדפדפן)</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="resetDestBtn" class="hidden bg-red-100/80 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm" title="בטל חזרה לברירת מחדל">
+                            ❌ בטל
+                        </button>
+                        <button type="button" id="destBtn" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap shadow-sm">
+                            📁 בחר יעד
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-100/30 dark:bg-slate-900/10 p-3 rounded-2xl border border-slate-200 dark:border-slate-800/50">
+                    <div class="flex justify-between items-center mb-2 px-1">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400">פורמט יעד (ברירת מחדל לכל קובץ חדש)</span>
+                    </div>
+                    <div class="flex bg-slate-200/50 dark:bg-slate-900 p-1 rounded-xl gap-1.5 border border-slate-300/50 dark:border-slate-800">
+                        <button type="button" onclick="switchTab('video')" id="tab-video" class="tab-btn flex-1 py-2 text-xs font-bold rounded-lg transition-all bg-sky-500 text-white shadow-md">וידאו</button>
+                        <button type="button" onclick="switchTab('audio')" id="tab-audio" class="tab-btn flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:bg-slate-300/50 dark:hover:bg-slate-800">אודיו</button>
+                        <button type="button" onclick="switchTab('image')" id="tab-image" class="tab-btn flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:bg-slate-300/50 dark:hover:bg-slate-800">תמונות</button>
+                        <button type="button" onclick="switchTab('docs')" id="tab-docs" class="tab-btn flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-600 dark:text-slate-400 hover:bg-slate-300/50 dark:hover:bg-slate-800">מסמכים</button>
+                    </div>
+
+                    <input type="hidden" id="selectedFormat" value="mp4">
+                    
+                    <div class="mt-3">
+                        <div id="content-video" class="tab-content grid grid-cols-3 gap-2">
+                            <div onclick="selectFormatCard('mp4')" id="card-mp4" class="format-card p-2.5 text-center rounded-xl border-2 border-sky-500 bg-sky-500/10 cursor-pointer text-sm font-bold">MP4</div>
+                            <div onclick="selectFormatCard('avi')" id="card-avi" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">AVI</div>
+                            <div onclick="selectFormatCard('mkv')" id="card-mkv" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">MKV</div>
+                        </div>
+                        <div id="content-audio" class="tab-content grid grid-cols-3 gap-2 hidden">
+                            <div onclick="selectFormatCard('mp3')" id="card-mp3" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">MP3</div>
+                            <div onclick="selectFormatCard('wav')" id="card-wav" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">WAV</div>
+                            <div onclick="selectFormatCard('flac')" id="card-flac" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">FLAC</div>
+                        </div>
+                        <div id="content-image" class="tab-content grid grid-cols-3 gap-2 hidden">
+                            <div onclick="selectFormatCard('jpg')" id="card-jpg" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">JPG</div>
+                            <div onclick="selectFormatCard('png')" id="card-png" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">PNG</div>
+                            <div onclick="selectFormatCard('ico')" id="card-ico" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">ICO</div>
+                        </div>
+                        <div id="content-docs" class="tab-content grid grid-cols-2 gap-2 hidden">
+                            <div onclick="selectFormatCard('pdf')" id="card-pdf" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">ל-PDF</div>
+                            <div onclick="selectFormatCard('docx')" id="card-docx" class="format-card p-2.5 text-center rounded-xl border-2 border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-sm font-bold">ל-DOCX (וורד)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="widthContainer" class="hidden bg-slate-100/30 dark:bg-slate-900/10 p-3 rounded-xl border border-slate-200 dark:border-slate-800/50">
+                    <label class="block text-xs font-bold text-slate-400 mb-1">📏 רוחב תמונה רצוי לכל התמונות בתור (אופציונלי):</label>
+                    <input type="number" id="width" placeholder="למשל: 1920" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-lg p-2 text-xs font-semibold text-center outline-none focus:border-sky-500 transition-all shadow-sm">
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl text-lg transition-all shadow-lg shadow-sky-500/20 transform hover:-translate-y-0.5 opacity-50 pointer-events-none">
+                    ⚡ התחל המרה ⚡
+                </button>
+
+                <div id="progressContainer" class="hidden w-full bg-slate-100/50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/50">
+                    <div class="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
+                        <span id="progressText">מכין קבצים להמרה...</span>
+                        <div class="flex items-center gap-2">
+                            <span id="progressPercent" class="text-sky-500">0%</span>
+                            <button type="button" id="cancelBtn" onclick="cancelConversion()" class="text-red-500 hover:text-red-400 font-bold text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors">
+                                ✕ בטל
+                            </button>
+                        </div>
+                    </div>
+                    <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden shadow-inner">
+                        <div id="progressBar" class="bg-gradient-to-r from-sky-400 to-indigo-500 h-3 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl mx-4 relative transform scale-95 transition-transform duration-300" id="settingsBox">
+            <button onclick="toggleSettingsModal(false)" class="absolute top-4 left-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+            </button>
+
+            <h3 class="text-lg font-bold text-center mb-6 mt-1">⚙️ הגדרות מערכת</h3>
+            
+            <div class="space-y-5 mb-2">
+                <div class="flex flex-col gap-2">
+                    <span class="text-sm font-medium">ערכת נושא:</span>
+                    <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg gap-1 w-full">
+                        <button onclick="setTheme('light')" id="theme-light" class="theme-btn flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">בהיר ☀️</button>
+                        <button onclick="setTheme('system')" id="theme-system" class="theme-btn flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">מערכת 💻</button>
+                        <button onclick="setTheme('dark')" id="theme-dark" class="theme-btn flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">כהה 🌙</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium">צליל סיום:</span>
+                    <select id="soundSelect" class="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white text-xs font-bold rounded-md px-3 py-2 outline-none border border-slate-200 dark:border-slate-700 cursor-pointer max-w-[140px]">
+                        <option value="none">ללא צליל 🔕</option>
+                        <option value="bell">פעמון עדין 🔔</option>
+                        <option value="magic">קסם ✨</option>
+                        <option value="chord">אקורד 🎵</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-medium" title="משפיע על איכות ההמרה לעברית במסמכים">מנוע מסמכים:</span>
+                    <select id="docEngineSelect" class="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white text-[11px] font-bold rounded-md px-2 py-2 outline-none border border-slate-200 dark:border-slate-700 cursor-pointer max-w-[140px]">
+                        <option value="msword">MS Word (איכותי)</option>
+                        <option value="standard">מנוע רגיל (גיבוי)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="aboutModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl mx-4 relative text-center transform scale-95 transition-transform duration-300" id="aboutBox">
+            
+            <button onclick="toggleAboutModal(false)" class="absolute top-4 left-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+            </button>
+
+            <div class="mt-4 mb-5 flex flex-col items-center">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="w-24 h-24 mb-3 object-contain drop-shadow-[0_10px_15px_rgba(14,165,233,0.3)]">
+                <h3 class="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-500 mb-1">CONVERTOP</h3>
+                <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 dark:border-slate-700 mt-1">
+                    גרסה 1.0.0
+                </span>
+            </div>
+            
+            <div class="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 p-4 rounded-xl mb-2">
+                <p class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-5 leading-relaxed">
+                   תוכנת המרה מקצועית שפותחה ע"י<span class="font-bold text-sky-500">טופ שבמתמחים</span> על מנת לספק את חווית העבודה הטובה ביותר.
+                </p>
+                <div class="flex flex-col gap-2.5">
+                    <a href="https://top-shebamitmachim.github.io/BLOG/" target="_blank" onclick="window.open(this.href); return false;" class="inline-flex items-center justify-center w-full gap-2 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-white py-2.5 rounded-lg font-bold text-sm transition-all shadow-md">
+                        🌐 בקר באתר הבית שלי
+                    </a>
+                    <a href="https://mitmachim.top/user/%D7%98%D7%95%D7%A4-%D7%A9%D7%91%D7%9E%D7%AA%D7%9E%D7%97%D7%99%D7%9D" target="_blank" onclick="window.open(this.href); return false;" class="inline-flex items-center justify-center w-full gap-2 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-900/50 border border-sky-200 dark:border-sky-800 py-2.5 rounded-lg font-bold text-sm transition-all shadow-sm">
+                        👤 לפרופיל שלי במתמחים טופ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="customAlertModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-2xl mx-4 relative text-center transform scale-95 transition-transform duration-300" id="customAlertBox">
+            <div id="alertIconBox" class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl shadow-inner">
+                <span id="alertIcon">✅</span>
+            </div>
+            <h3 id="alertTitle" class="text-xl font-bold mb-2 text-slate-800 dark:text-white">כותרת התראה</h3>
+            <p id="alertMessage" class="text-sm text-slate-600 dark:text-slate-300 mb-6 leading-relaxed"></p>
+            <button onclick="closeCustomAlert()" id="alertBtn" class="w-full text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md hover:-translate-y-0.5">
+                אישור
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentTheme = "{{ settings.theme }}";
+        let currentSound = "{{ settings.sound }}";
+        let currentDocEngine = "{{ settings.doc_engine }}";
+        let selectedFolderPath = "{{ settings.target_dir | replace('\\', '\\\\') }}";
+        let selectedFolderShort = "{{ short_name }}";
+
+        // --- מערכת ניהול תור הקבצים (החכמה!) ---
+        let fileQueueArray = [];
+
+        function formatBytes(bytes) {
+            if(bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function addFilesToQueue(filesList) {
+            const globalFormat = document.getElementById('selectedFormat').value;
+
+            for (let i = 0; i < filesList.length; i++) {
+                const file = filesList[i];
+                const ext = file.name.split('.').pop().toLowerCase();
+                let format = globalFormat;
+                
+                // זיהוי חכם: מתאים אוטומטית את הפורמט לפי סוג הקובץ שנגרר!
+                if (['pdf'].includes(ext)) format = 'docx';
+                else if (['doc', 'docx'].includes(ext)) format = 'pdf';
+                else if (['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv'].includes(ext) && !['mp4','avi','mkv'].includes(format)) format = 'mp4';
+                else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'].includes(ext) && !['mp3','wav','flac'].includes(format)) format = 'mp3';
+                else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext) && !['jpg','png','ico'].includes(format)) format = 'jpg';
+
+                fileQueueArray.push({
+                    file: file,
+                    id: Date.now() + i,
+                    status: 'pending',
+                    targetFormat: format // שומר את הפורמט הייעודי לכל קובץ
+                });
+            }
+            renderQueue();
+        }
+
+        function removeFileFromQueue(id) {
+            fileQueueArray = fileQueueArray.filter(f => f.id !== id);
+            renderQueue();
+        }
+
+        function clearQueue() {
+            fileQueueArray = [];
+            renderQueue();
+        }
+
+        // הפונקציה הזו משנה את ההגדרה *רק* עבור הקובץ הספציפי
+        window.updateItemFormat = function(id, format) {
+            const item = fileQueueArray.find(f => f.id === id);
+            if (item) item.targetFormat = format;
+        };
+
+        function renderQueue() {
+            const container = document.getElementById('fileListContainer');
+            const queueEl = document.getElementById('fileQueue');
+            const countEl = document.getElementById('queueCount');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            countEl.innerText = fileQueueArray.length;
+            
+            if (fileQueueArray.length === 0) {
+                container.classList.add('hidden');
+                submitBtn.classList.add('opacity-50', 'pointer-events-none');
+                queueEl.innerHTML = '';
+                return;
+            }
+            
+            container.classList.remove('hidden');
+            submitBtn.classList.remove('opacity-50', 'pointer-events-none');
+            queueEl.innerHTML = '';
+
+            fileQueueArray.forEach((item) => {
+                let statusIcon = '⏳';
+                let statusClass = 'text-slate-400';
+                if(item.status === 'processing') { statusIcon = '🔄'; statusClass = 'text-sky-500 animate-spin'; }
+                if(item.status === 'done') { statusIcon = '✅'; statusClass = 'text-green-500'; }
+                if(item.status === 'error') { statusIcon = '❌'; statusClass = 'text-red-500'; }
+
+                // בניית תפריט הפורמטים לקובץ
+                const optionsHTML = `
+                    <optgroup label="וידאו">
+                        <option value="mp4" ${item.targetFormat === 'mp4' ? 'selected' : ''}>MP4</option>
+                        <option value="avi" ${item.targetFormat === 'avi' ? 'selected' : ''}>AVI</option>
+                        <option value="mkv" ${item.targetFormat === 'mkv' ? 'selected' : ''}>MKV</option>
+                    </optgroup>
+                    <optgroup label="אודיו">
+                        <option value="mp3" ${item.targetFormat === 'mp3' ? 'selected' : ''}>MP3</option>
+                        <option value="wav" ${item.targetFormat === 'wav' ? 'selected' : ''}>WAV</option>
+                        <option value="flac" ${item.targetFormat === 'flac' ? 'selected' : ''}>FLAC</option>
+                    </optgroup>
+                    <optgroup label="תמונות">
+                        <option value="jpg" ${item.targetFormat === 'jpg' ? 'selected' : ''}>JPG</option>
+                        <option value="png" ${item.targetFormat === 'png' ? 'selected' : ''}>PNG</option>
+                        <option value="ico" ${item.targetFormat === 'ico' ? 'selected' : ''}>ICO</option>
+                    </optgroup>
+                    <optgroup label="מסמכים">
+                        <option value="pdf" ${item.targetFormat === 'pdf' ? 'selected' : ''}>PDF</option>
+                        <option value="docx" ${item.targetFormat === 'docx' ? 'selected' : ''}>DOCX</option>
+                    </optgroup>
+                `;
+
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm gap-2';
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden flex-1">
+                        <div class="text-sm ${statusClass}" id="status-icon-${item.id}">${statusIcon}</div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate" title="${item.file.name}">${item.file.name}</span>
+                            <span class="text-[10px] text-slate-400">${formatBytes(item.file.size)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 transition-colors hover:border-sky-300">
+                            <span class="text-[10px] text-slate-500 font-medium">ל-</span>
+                            <select onchange="updateItemFormat(${item.id}, this.value)" class="text-xs font-bold bg-transparent text-sky-600 dark:text-sky-400 outline-none cursor-pointer" ${item.status !== 'pending' ? 'disabled' : ''}>
+                                ${optionsHTML}
+                            </select>
+                        </div>
+                        <button type="button" onclick="removeFileFromQueue(${item.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="הסר קובץ" ${item.status === 'processing' ? 'disabled' : ''}>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                `;
+                queueEl.appendChild(el);
+            });
+        }
+        // ------------------------------
+
+        async function updateServerSetting(key, value) {
+            try {
+                await fetch('/save_setting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: key, value: value })
+                });
+            } catch (e) {}
+        }
+
+        window.addEventListener('load', () => {
+            const splash = document.getElementById('splashScreen');
+            updateThemeButtons(currentTheme); 
+            document.getElementById('soundSelect').value = currentSound;
+            document.getElementById('docEngineSelect').value = currentDocEngine;
+            
+            if (selectedFolderPath) {
+                const destLabel = document.getElementById('destLabel');
+                const resetBtn = document.getElementById('resetDestBtn');
+                destLabel.innerText = `📁 .../${selectedFolderShort}`;
+                destLabel.title = selectedFolderPath;
+                destLabel.classList.add('text-sky-500', 'dark:text-sky-400');
+                resetBtn.classList.remove('hidden');
+            }
+
+            renderQueue(); 
+
+            setTimeout(() => {
+                splash.classList.add('opacity-0');
+                setTimeout(() => { splash.style.display = 'none'; }, 700);
+            }, 600);
+        });
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            updateServerSetting('theme', theme);
+            const html = document.documentElement;
+            if (theme === 'dark') html.classList.add('dark');
+            else if (theme === 'light') html.classList.remove('dark');
+            else {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) html.classList.add('dark');
+                else html.classList.remove('dark');
+            }
+            updateThemeButtons(theme);
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (currentTheme === 'system') {
+                if (e.matches) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }
+        });
+
+        function updateThemeButtons(theme) {
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('bg-sky-500', 'text-white', 'shadow-md');
+                btn.classList.add('text-slate-600', 'dark:text-slate-300', 'hover:bg-slate-200', 'dark:hover:bg-slate-700');
+            });
+            let activeId = 'theme-system';
+            if (theme === 'dark') activeId = 'theme-dark';
+            else if (theme === 'light') activeId = 'theme-light';
+            const activeBtn = document.getElementById(activeId);
+            activeBtn.classList.remove('text-slate-600', 'dark:text-slate-300', 'hover:bg-slate-200', 'dark:hover:bg-slate-700');
+            activeBtn.classList.add('bg-sky-500', 'text-white', 'shadow-md');
+        }
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playTone(freq, type, duration, vol = 0.3) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playNotificationSound(type) {
+            if (type === 'bell') {
+                playTone(600, 'sine', 0.8, 0.5);
+            } else if (type === 'magic') {
+                playTone(400, 'sine', 0.2, 0.2);
+                setTimeout(() => playTone(600, 'sine', 0.2, 0.2), 100);
+                setTimeout(() => playTone(800, 'sine', 0.6, 0.3), 200);
+            } else if (type === 'chord') {
+                playTone(440, 'sine', 1, 0.2); 
+                playTone(554.37, 'sine', 1, 0.2); 
+                playTone(659.25, 'sine', 1, 0.2); 
+            }
+        }
+
+        document.getElementById('soundSelect').addEventListener('change', (e) => {
+            currentSound = e.target.value;
+            updateServerSetting('sound', currentSound);
+            if (currentSound !== 'none') playNotificationSound(currentSound); 
+        });
+
+        document.getElementById('docEngineSelect').addEventListener('change', (e) => {
+            currentDocEngine = e.target.value;
+            updateServerSetting('doc_engine', currentDocEngine);
+        });
+
+        function showCustomAlert(title, message, type = 'success') {
+            const modal = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            const iconBox = document.getElementById('alertIconBox');
+            const icon = document.getElementById('alertIcon');
+            const titleEl = document.getElementById('alertTitle');
+            const messageEl = document.getElementById('alertMessage');
+            const btn = document.getElementById('alertBtn');
+
+            titleEl.innerText = title;
+            messageEl.innerHTML = message; 
+
+            if (type === 'success') {
+                iconBox.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl shadow-inner bg-green-100 dark:bg-green-900/30';
+                icon.innerText = '✅';
+                btn.className = 'w-full text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md hover:-translate-y-0.5 bg-green-500 hover:bg-green-400';
+            } else {
+                iconBox.className = 'w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center text-3xl shadow-inner bg-red-100 dark:bg-red-900/30';
+                icon.innerText = '❌';
+                btn.className = 'w-full text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md hover:-translate-y-0.5 bg-red-500 hover:bg-red-400';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeCustomAlert() {
+            const modal = document.getElementById('customAlertModal');
+            const box = document.getElementById('customAlertBox');
+            modal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const form = document.getElementById('convertForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const destBtn = document.getElementById('destBtn');
+        const resetDestBtn = document.getElementById('resetDestBtn');
+        const destLabel = document.getElementById('destLabel');
+        
+        const progressContainer = document.getElementById('progressContainer');
+        const progressText = document.getElementById('progressText');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressBar = document.getElementById('progressBar');
+
+        let isCancelled = false;
+
+        async function cancelConversion() {
+            isCancelled = true;
+            try { await fetch('/cancel_conversion', { method: 'POST' }); } catch(e) {}
+        }
+
+        dropzone.addEventListener('click', () => {
+            initAudio(); 
+            fileInput.click();
+        });
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('border-green-400', 'bg-green-500/5');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('border-green-400', 'bg-green-500/5');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            initAudio();
+            dropzone.classList.remove('border-green-400', 'bg-green-500/5');
+            if (e.dataTransfer.files.length) {
+                addFilesToQueue(e.dataTransfer.files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                addFilesToQueue(e.target.files);
+            }
+            e.target.value = '';
+        });
+
+        destBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/select_destination', { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    selectedFolderPath = data.folder; 
+                    destLabel.innerText = `📁 .../${data.short_name}`;
+                    destLabel.title = data.folder; 
+                    destLabel.classList.add('text-sky-500', 'dark:text-sky-400');
+                    resetDestBtn.classList.remove('hidden');
+                }
+            } catch (err) {
+                showCustomAlert('שגיאת תקשורת', 'לא ניתן להתחבר לשרת לבחירת יעד.', 'error');
+            }
+        });
+
+        resetDestBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/reset_destination', { method: 'POST' });
+                selectedFolderPath = "";
+                destLabel.innerText = 'ברירת מחדל (הורדות בדפדפן)';
+                destLabel.title = ''; 
+                destLabel.classList.remove('text-sky-500', 'dark:text-sky-400');
+                resetDestBtn.classList.add('hidden');
+            } catch (err) {}
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-sky-500', 'text-white', 'shadow-md');
+                btn.classList.add('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-300/50', 'dark:hover:bg-slate-800');
+            });
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.remove('text-slate-600', 'dark:text-slate-400', 'hover:bg-slate-300/50', 'dark:hover:bg-slate-800');
+            activeBtn.classList.add('bg-sky-500', 'text-white', 'shadow-md');
+
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+            const firstCard = document.getElementById(`content-${tabName}`).querySelector('.format-card');
+            if (firstCard) {
+                const format = firstCard.id.replace('card-', '');
+                selectFormatCard(format);
+            }
+        }
+
+        function selectFormatCard(format) {
+            document.querySelectorAll('.format-card').forEach(card => {
+                card.classList.remove('border-sky-500', 'bg-sky-500/10');
+                card.classList.add('border-transparent', 'bg-slate-100', 'dark:bg-slate-900');
+            });
+            const activeCard = document.getElementById(`card-${format}`);
+            activeCard.classList.remove('border-transparent', 'bg-slate-100', 'dark:bg-slate-900');
+            activeCard.classList.add('border-sky-500', 'bg-sky-500/10');
+
+            document.getElementById('selectedFormat').value = format;
+            const widthContainer = document.getElementById('widthContainer');
+            if (['jpg', 'png'].includes(format)) widthContainer.classList.remove('hidden');
+            else widthContainer.classList.add('hidden');
+        }
+
+        function toggleSettingsModal(show) {
+            const modal = document.getElementById('settingsModal');
+            const box = document.getElementById('settingsBox');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10);
+            } else {
+                modal.classList.add('opacity-0'); box.classList.remove('scale-100'); box.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        function toggleAboutModal(show) {
+            const modal = document.getElementById('aboutModal');
+            const box = document.getElementById('aboutBox');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); box.classList.add('scale-100'); }, 10);
+            } else {
+                modal.classList.add('opacity-0'); box.classList.remove('scale-100'); box.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (fileQueueArray.length === 0) return;
+
+            const totalFiles = fileQueueArray.length;
+            let successCount = 0;
+            let locallySaved = false;
+            isCancelled = false;
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('hidden');
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressPercent.innerText = '0%';
+
+            fileQueueArray.forEach(f => f.status = 'pending');
+            renderQueue();
+
+            for (let i = 0; i < totalFiles; i++) {
+                if (isCancelled) break;
+
+                const currentItem = fileQueueArray[i];
+                currentItem.status = 'processing';
+                renderQueue(); 
+
+                progressText.innerText = `ממיר: ${currentItem.file.name} (${i + 1} מתוך ${totalFiles})`;
+
+                const formData = new FormData();
+                formData.append('file', currentItem.file);
+                // שליחת הפורמט הספציפי שנבחר עבור קובץ זה מהתור!
+                formData.append('format', currentItem.targetFormat);
+                formData.append('width', document.getElementById('width').value);
+                formData.append('doc_engine', currentDocEngine);
+
+                try {
+                    const response = await fetch('/convert', { method: 'POST', body: formData });
+
+                    if (isCancelled) break;
+
+                    if (response.ok) {
+                        const contentType = response.headers.get("content-type");
+                        if (contentType && contentType.includes("application/json")) {
+                            const resData = await response.json();
+                            locallySaved = true; 
+                        } else {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            const baseName = currentItem.file.name.substring(0, currentItem.file.name.lastIndexOf('.'));
+                            a.download = baseName + '.' + currentItem.targetFormat;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                        }
+                        successCount++;
+                        currentItem.status = 'done';
+                    } else {
+                        const err = await response.json();
+                        if (err.error && err.error.includes('בוטלה')) {
+                            isCancelled = true;
+                            currentItem.status = 'error';
+                            break;
+                        }
+                        currentItem.status = 'error';
+                        showCustomAlert('שגיאת המרה', `שגיאה בהמרת <b>${currentItem.file.name}</b>:<br>${err.error}`, 'error');
+                    }
+                } catch (error) {
+                    currentItem.status = 'error';
+                    if (!isCancelled) {
+                        showCustomAlert('שגיאת תקשורת', `הייתה בעיה בתקשורת מול השרת בקובץ <b>${currentItem.file.name}</b>.`, 'error');
+                    }
+                }
+
+                renderQueue();
+                const percent = Math.round(((i + 1) / totalFiles) * 100);
+                progressBar.style.width = percent + '%';
+                progressPercent.innerText = percent + '%';
+            }
+
+            if (!isCancelled && currentSound !== 'none') {
+                playNotificationSound(currentSound);
+            }
+
+            setTimeout(() => {
+                if (isCancelled) {
+                    showCustomAlert('ההמרה בוטלה', `בוטלה לאחר ${successCount} מתוך ${totalFiles} קבצים.`, 'error');
+                } else if (locallySaved && selectedFolderPath) {
+                    const successMsg = `
+                        הושלמו ${successCount} מתוך ${totalFiles} המרות!<br><br>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">הקבצים נשמרו בהצלחה בנתיב:</span><br>
+                        <div dir="ltr" class="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-sky-600 dark:text-sky-400 text-xs font-mono break-all select-all border border-slate-200 dark:border-slate-700">
+                            ${selectedFolderPath}
+                        </div>
+                    `;
+                    showCustomAlert('ההמרה הושלמה!', successMsg, 'success');
+                } else {
+                    const successMsg = `הושלמו ${successCount} מתוך ${totalFiles} המרות!<br>בדוק את תיקיית ההורדות שלך.`;
+                    showCustomAlert('ההמרה הושלמה!', successMsg, 'success');
+                }
+                
+                progressContainer.classList.add('hidden');
+                submitBtn.classList.remove('hidden');
+                submitBtn.disabled = false;
+                isCancelled = false;
+            }, 500);
+        });
+    </script>
+</body>
+</html>
